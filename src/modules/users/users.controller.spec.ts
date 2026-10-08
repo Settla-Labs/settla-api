@@ -2,9 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ProfilePictureAuthGuard } from '../auth/profile-picture-auth.guard';
 import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { UploadFileInput } from '../file-storage/file-storage.service';
 import { Request } from 'express';
+import { GUARDS_METADATA } from '@nestjs/common/constants';
 
 type UploadProfilePicRequest = Request & {
   user: { userId: string; publicKey: string };
@@ -40,9 +42,34 @@ describe('UsersController', () => {
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
+      .overrideGuard(ProfilePictureAuthGuard)
+      .useValue({ canActivate: () => true })
       .compile();
 
     controller = module.get<UsersController>(UsersController);
+  });
+
+  it('uses the mock-capable guard only for the profile-picture endpoint', () => {
+    const profilePictureMethod = Object.getOwnPropertyDescriptor(
+      UsersController.prototype,
+      'uploadProfilePicture',
+    )?.value as object;
+    const updateMethod = Object.getOwnPropertyDescriptor(
+      UsersController.prototype,
+      'update',
+    )?.value as object;
+    const profilePictureGuards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      profilePictureMethod,
+    ) as unknown[];
+    const updateGuards = Reflect.getMetadata(
+      GUARDS_METADATA,
+      updateMethod,
+    ) as unknown[];
+
+    expect(profilePictureGuards).toContain(ProfilePictureAuthGuard);
+    expect(profilePictureGuards).not.toContain(JwtAuthGuard);
+    expect(updateGuards).toContain(JwtAuthGuard);
   });
 
   describe('uploadProfilePicture', () => {

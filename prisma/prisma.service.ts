@@ -1,5 +1,6 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@prisma/client';
+import { isProfilePictureMockEnabled } from '../src/modules/auth/profile-picture-mock.config';
 
 interface PrismaQueryEvent {
   query: string;
@@ -38,10 +39,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
       this.registerQueryLogger();
     }
 
-    if (
-      process.env.MOCK_PROFILE_UPLOAD === 'true' ||
-      !process.env.DATABASE_URL
-    ) {
+    if (isProfilePictureMockEnabled() || !process.env.DATABASE_URL) {
       return;
     }
 

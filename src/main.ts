@@ -7,8 +7,10 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/errors';
 import { parseCookies } from './common/guards/csrf.guard';
+import { warnIfProfilePictureMockEnabled } from './modules/auth/profile-picture-mock.config';
 
 async function bootstrap() {
+  warnIfProfilePictureMockEnabled();
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
