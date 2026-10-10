@@ -1,8 +1,10 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/unbound-method */
 jest.mock('@stellar/stellar-sdk', () => ({}));
 jest.mock('../escrow/trustless-work.service', () => ({
   TrustlessWorkService: jest.fn(),
 }));
+jest.mock('axios');
+import axios from 'axios';
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConfigService } from '@nestjs/config';
@@ -329,5 +331,147 @@ describe('StellarListenerService', () => {
     const skipped = await service.processEvent(event);
     expect(skipped).toBe(false);
     expect(updateEscrowMock).not.toHaveBeenCalled();
+  });
+
+  describe('queryEventsFromRpc pagination (Issue #59)', () => {
+    const mockedAxios = axios as jest.Mocked<typeof axios>;
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should trigger follow-up request using response cursor when 100 events returned', async () => {
+      const page1Events = Array.from({ length: 100 }, (_, i) => ({
+        id: `evt-p1-${i}`,
+        type: 'contract',
+      }));
+      const page2Events = Array.from({ length: 25 }, (_, i) => ({
+        id: `evt-p2-${i}`,
+        type: 'contract',
+      }));
+
+      (mockedAxios.post as jest.Mock)
+        .mockResolvedValueOnce({
+          data: {
+            result: {
+              events: page1Events,
+              latestLedger: 5000,
+              cursor: 'cursor-100',
+            },
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            result: {
+              events: page2Events,
+              latestLedger: 5000,
+              cursor: 'cursor-125',
+            },
+          },
+        });
+
+      const res = await (service as any).queryEventsFromRpc(['CONTRACT_ABC']);
+
+      expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+
+      // First call has limit 100 without cursor
+      expect(mockedAxios.post).toHaveBeenNthCalledWith(
+        1,
+        'https://soroban-testnet.stellar.org',
+        expect.objectContaining({
+          method: 'getEvents',
+          params: expect.objectContaining({
+            pagination: { limit: 100 },
+          }),
+        }),
+        expect.any(Object),
+      );
+
+      // Second call has limit 100 with continuation cursor
+      expect(mockedAxios.post).toHaveBeenNthCalledWith(
+        2,
+        'https://soroban-testnet.stellar.org',
+        expect.objectContaining({
+          method: 'getEvents',
+          params: expect.objectContaining({
+            pagination: { limit: 100, cursor: 'cursor-100' },
+          }),
+        }),
+        expect.any(Object),
+      );
+
+      // Returned event list contains events from every page (100 + 25 = 125)
+      expect(res.events).toHaveLength(125);
+      expect(res.latestLedger).toBe(5000);
+    });
+
+    it('should stop paging when a page returns fewer than 100 events', async () => {
+      const pageEvents = Array.from({ length: 42 }, (_, i) => ({
+        id: `evt-${i}`,
+        type: 'contract',
+      }));
+
+      (mockedAxios.post as jest.Mock).mockResolvedValueOnce({
+        data: {
+          result: {
+            events: pageEvents,
+            latestLedger: 6000,
+            cursor: 'cursor-42',
+          },
+        },
+      });
+
+      const res = await (service as any).queryEventsFromRpc(['CONTRACT_ABC']);
+
+      expect(mockedAxios.post).toHaveBeenCalledTimes(1);
+      expect(res.events).toHaveLength(42);
+      expect(res.latestLedger).toBe(6000);
+    });
+
+    it('should log when page limit is hit and when multiple pages are processed in a single cycle', async () => {
+      const loggerSpy = jest.spyOn((service as any).logger, 'log');
+
+      const page1Events = Array.from({ length: 100 }, (_, i) => ({
+        id: `evt-p1-${i}`,
+      }));
+      const page2Events = Array.from({ length: 10 }, (_, i) => ({
+        id: `evt-p2-${i}`,
+      }));
+
+      (mockedAxios.post as jest.Mock)
+        .mockResolvedValueOnce({
+          data: {
+            result: {
+              events: page1Events,
+              cursor: 'cursor-100',
+            },
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            result: {
+              events: page2Events,
+            },
+          },
+        });
+
+      await (service as any).queryEventsFromRpc(['CONTRACT_ABC']);
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('hit page limit (100 events)'),
+      );
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Backlog processed'),
+      );
+    });
+
+    it('should return empty events array gracefully when RPC throws error', async () => {
+      (mockedAxios.post as jest.Mock).mockRejectedValueOnce(
+        new Error('Network connection timeout'),
+      );
+
+      const res = await (service as any).queryEventsFromRpc(['CONTRACT_ABC']);
+      expect(res.events).toEqual([]);
+    });
   });
 });

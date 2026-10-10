@@ -202,52 +202,98 @@ export class StellarListenerService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Issues RPC POST request to Soroban getEvents endpoint.
+   * Issues RPC POST request to Soroban getEvents endpoint with cursor-based pagination.
    */
   private async queryEventsFromRpc(
     contractIds: string[],
   ): Promise<{ events: SorobanEventRaw[]; latestLedger?: number }> {
+    const PAGE_LIMIT = 100;
+    const MAX_PAGES = 100;
+    const allEvents: SorobanEventRaw[] = [];
+    let latestLedger: number | undefined;
+    let cursor: string | undefined = undefined;
+    let pageCount = 0;
+
     try {
-      const body = {
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'getEvents',
-        params: {
-          startLedger:
-            this.lastProcessedLedger > 0 ? this.lastProcessedLedger : undefined,
-          filters: [
-            {
-              type: 'contract',
-              contractIds,
-            },
-          ],
-          pagination: {
-            limit: 100,
+      do {
+        const pagination: { limit: number; cursor?: string } = {
+          limit: PAGE_LIMIT,
+        };
+        if (cursor) {
+          pagination.cursor = cursor;
+        }
+
+        const body = {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getEvents',
+          params: {
+            startLedger:
+              this.lastProcessedLedger > 0
+                ? this.lastProcessedLedger
+                : undefined,
+            filters: [
+              {
+                type: 'contract',
+                contractIds,
+              },
+            ],
+            pagination,
           },
-        },
-      };
+        };
 
-      const res = await axios.post<{
-        error?: unknown;
-        result?: { events?: SorobanEventRaw[]; latestLedger?: number };
-      }>(this.rpcUrl, body, { timeout: 10000 });
+        const res = await axios.post<{
+          error?: unknown;
+          result?: {
+            events?: SorobanEventRaw[];
+            latestLedger?: number | string;
+            cursor?: string;
+          };
+        }>(this.rpcUrl, body, { timeout: 10000 });
 
-      if (res.data.error) {
-        throw new Error(`Soroban RPC error: ${JSON.stringify(res.data.error)}`);
+        if (res.data.error) {
+          throw new Error(
+            `Soroban RPC error: ${JSON.stringify(res.data.error)}`,
+          );
+        }
+
+        const pageEvents: SorobanEventRaw[] = res.data.result?.events || [];
+        allEvents.push(...pageEvents);
+        pageCount++;
+
+        if (res.data.result?.latestLedger) {
+          latestLedger = Number(res.data.result.latestLedger);
+        }
+
+        const nextCursor = res.data.result?.cursor;
+
+        if (
+          pageEvents.length === PAGE_LIMIT &&
+          nextCursor &&
+          nextCursor !== cursor
+        ) {
+          this.logger.log(
+            `Soroban getEvents hit page limit (${PAGE_LIMIT} events). Continuing with cursor: ${nextCursor}`,
+          );
+          cursor = nextCursor;
+        } else {
+          break;
+        }
+      } while (pageCount < MAX_PAGES);
+
+      if (pageCount > 1) {
+        this.logger.log(
+          `Backlog processed: fetched ${allEvents.length} events across ${pageCount} pages in a single poll cycle.`,
+        );
       }
 
-      const events: SorobanEventRaw[] = res.data.result?.events || [];
-      const latestLedger = res.data.result?.latestLedger
-        ? Number(res.data.result.latestLedger)
-        : undefined;
-
-      return { events, latestLedger };
+      return { events: allEvents, latestLedger };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.debug(
         `RPC call getEvents failed/fallback to Horizon: ${message}`,
       );
-      return { events: [] };
+      return { events: allEvents.length > 0 ? allEvents : [] };
     }
   }
 
