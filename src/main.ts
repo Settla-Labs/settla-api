@@ -2,7 +2,7 @@ import 'dotenv/config';
 import type { Request, Response, NextFunction } from 'express';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/errors';
@@ -59,10 +59,11 @@ async function bootstrap() {
       isNaN(Number(trustProxy)) ? trustProxy : Number(trustProxy),
     );
 
-  // 👇 CORRECCIÓN AQUÍ: Agrega '0.0.0.0' como segundo parámetro
+  // Bind to 0.0.0.0 to enable container networking in Docker/Cloud Run environments
+  const logger = new Logger('Bootstrap');
   const port = process.env.PORT ?? 3001;
   await app.listen(port, '0.0.0.0');
 
-  console.log(`Application is running on port ${port}`);
+  logger.log(`Application is running on port ${port} (bound to 0.0.0.0)`);
 }
 void bootstrap();
