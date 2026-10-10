@@ -85,6 +85,7 @@ model EscrowOnChain {
   evidenceUrl   String?       @map("evidence_url")
   order         Order         @relation(fields: [orderId], references: [orderId], onDelete: Cascade, onUpdate: NoAction)
 
+  @@index([escrowStatus], map: "idx_escrow_on_chain_status")
   @@map("escrowonchain")
 }
 
