@@ -139,6 +139,9 @@ model payment_provider {
   updated_at      DateTime              @default(now()) @db.Timestamptz(6)
   payment_methods PaymentMethod[]
 
+  // Global (NULL country) uniqueness is enforced by the SQL partial index
+  // payment_provider_global_name_type_unique. Prisma 6 cannot express it here;
+  // apply the checked-in migration rather than relying on db push.
   @@unique([name, country_code, type], map: "payment_provider_name_country_type_unique")
   @@index([country_code], map: "idx_payment_provider_country_code")
   @@index([is_active], map: "idx_payment_provider_is_active")

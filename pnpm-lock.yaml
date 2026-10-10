@@ -84,6 +84,9 @@ importers:
         specifier: ^4.8.3
         version: 4.8.3(supports-color@8.1.1)
     devDependencies:
+      '@electric-sql/pglite':
+        specifier: 0.5.8
+        version: 0.5.8
       '@eslint/eslintrc':
         specifier: ^3.2.0
         version: 3.3.5(supports-color@8.1.1)
@@ -164,6 +167,9 @@ importers:
         version: 8.57.0(eslint@9.39.4(jiti@2.6.1)(supports-color@8.1.1))(supports-color@8.1.1)(typescript@5.9.3)
 
 packages:
+
+  '@electric-sql/pglite@0.5.8':
+    resolution: {integrity: sha512-n9tsbUOhwx2epK1V0ZG9Ar4SHWUju04dhmzZXiSBXwBoleOvIfals33NAaWgagQVAL4Rbvx/Ptsu3P+pA09f6Q==}
 
   '@angular-devkit/core@19.2.17':
     resolution: {integrity: sha512-Ah008x2RJkd0F+NLKqIpA34/vUGwjlprRCkvddjDopAWRzYn6xCkz1Tqwuhn0nR1Dy47wTLKYD999TYl5ONOAQ==}
@@ -3551,6 +3557,8 @@ packages:
     engines: {node: '>=18'}
 
 snapshots:
+
+  '@electric-sql/pglite@0.5.8': {}
 
   '@angular-devkit/core@19.2.17(chokidar@4.0.3)':
     dependencies:
