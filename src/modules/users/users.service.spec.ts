@@ -133,6 +133,36 @@ describe('UsersService', () => {
   });
 
   describe('uploadProfilePicture', () => {
+    it('does not use the upload mock outside development even when the flag is true', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.MOCK_PROFILE_UPLOAD = 'true';
+      const mockFile = {
+        originalname: 'test.jpg',
+        mimetype: 'image/jpeg',
+        size: 100,
+        buffer: Buffer.from('data'),
+      };
+      const storedFile = {
+        key: 'path/to/test.jpg',
+        url: 'http://gcs.local/path/to/test.jpg',
+      };
+      repo.findById = jest.fn().mockResolvedValue({ userId: 'user-1' });
+      repo.update = jest.fn().mockResolvedValue({
+        userId: 'user-1',
+        profileImageUrl: storedFile.url,
+      });
+      mockFileStorageService.uploadFile = jest
+        .fn()
+        .mockResolvedValue(storedFile);
+
+      await service.uploadProfilePicture('user-1', mockFile);
+
+      expect(repo.findById).toHaveBeenCalledWith('user-1');
+      expect(repo.update).toHaveBeenCalledWith('user-1', {
+        profileImageUrl: storedFile.url,
+      });
+    });
+
     it('should upload file and update user profileImageUrl when MOCK_PROFILE_UPLOAD is false', async () => {
       process.env.MOCK_PROFILE_UPLOAD = 'false';
       const mockFile = {
@@ -186,6 +216,7 @@ describe('UsersService', () => {
     });
 
     it('should return mock response without hitting DB when MOCK_PROFILE_UPLOAD is true', async () => {
+      process.env.NODE_ENV = 'development';
       process.env.MOCK_PROFILE_UPLOAD = 'true';
       const mockFile = {
         originalname: 'test.jpg',

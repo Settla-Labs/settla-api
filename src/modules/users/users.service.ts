@@ -3,6 +3,7 @@ import { PaginationDto } from '../../common/pagination.dto';
 import { CreateUserDto } from './dto/create-users.dto';
 import { UpdateUserDto } from './dto/update-users.dto';
 import { UsersRepository } from './users.repository';
+import { isProfilePictureMockEnabled } from '../auth/profile-picture-mock.config';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { SetupAccountDto } from './dto/setup-account.dto';
 import { AuthService } from '../auth/auth.service';
@@ -211,7 +212,7 @@ export class UsersService {
     file: UploadFileInput,
     userSnapshot?: Record<string, unknown>,
   ): Promise<AppUser | UploadResult> {
-    if (process.env.MOCK_PROFILE_UPLOAD === 'true') {
+    if (isProfilePictureMockEnabled()) {
       const uploadedFile: StoredFile =
         await this.fileStorageService.uploadFile(file);
       return {

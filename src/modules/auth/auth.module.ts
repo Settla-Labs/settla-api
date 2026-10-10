@@ -9,6 +9,8 @@ import { AuthController } from './auth.controller';
 import { AuthRateLimitGuard } from './auth-rate-limit.guard';
 import { getJwtSecret } from '../../config/jwt.config';
 import { AuthChallengeCron } from './auth-challenge.cron';
+import { JwtAuthGuard } from './jwt-auth.guard';
+import { ProfilePictureAuthGuard } from './profile-picture-auth.guard';
 
 @Module({
   imports: [
@@ -23,8 +25,15 @@ import { AuthChallengeCron } from './auth-challenge.cron';
       }),
     }),
   ],
-  providers: [AuthService, JwtStrategy, AuthRateLimitGuard, AuthChallengeCron],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    AuthRateLimitGuard,
+    AuthChallengeCron,
+    JwtAuthGuard,
+    ProfilePictureAuthGuard,
+  ],
   controllers: [AuthController],
-  exports: [AuthService, JwtModule],
+  exports: [AuthService, JwtModule, JwtAuthGuard, ProfilePictureAuthGuard],
 })
 export class AuthModule {}

@@ -24,6 +24,7 @@ import { ValidateAliasDto } from './dto/validate-alias.dto';
 import { UsersService } from './users.service';
 import { SetupAccountDto } from './dto/setup-account.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { ProfilePictureAuthGuard } from '../auth/profile-picture-auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import type { UploadFileInput } from '../file-storage/file-storage.service';
@@ -94,7 +95,7 @@ export class UsersController {
     return this.service.update(id, dto, req.user?.userId ?? req.user?.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(ProfilePictureAuthGuard)
   @Patch(':id/profile-picture')
   @UseInterceptors(
     FileInterceptor('profileImage', { limits: { fileSize: 5 * 1024 * 1024 } }),
