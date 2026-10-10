@@ -86,23 +86,11 @@ export class EscrowService {
   }
 
   private resolveTrustline(assetCode: string | undefined): Trustline {
-    const isNative =
-      !assetCode ||
-      assetCode === 'XLM' ||
-      assetCode === 'native' ||
-      assetCode === '';
-
-    if (isNative) {
-      const xlmSacAddress =
-        this.config.get<string>('TRUSTLESS_WORK_XLM_ADDRESS') ??
-        'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC';
-      return { address: xlmSacAddress, symbol: 'XLM' };
-    }
-
+    // Escrow operations strictly require USDC as verified in validateAssetCode
     const usdcIssuer = this.config.getOrThrow<string>(
       'TRUSTLESS_WORK_USDC_ISSUER',
     );
-    return { address: usdcIssuer, symbol: assetCode };
+    return { address: usdcIssuer, symbol: assetCode || 'USDC' };
   }
 
   /**
